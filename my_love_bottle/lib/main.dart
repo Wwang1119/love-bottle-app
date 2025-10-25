@@ -10,133 +10,196 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        // 顶部标题栏
-        appBar: AppBar(
-          title: const Text("我们的回忆长河"),
-          centerTitle: true,
-          backgroundColor: Colors.purpleAccent,
-        ),
-        // 页面主体（时间长河+瓶子）
-        body: SingleChildScrollView(
-          scrollDirection: Axis.horizontal, // 允许左右滑动
-          child: Container(
-            width: MediaQuery.of(context).size.width * 2, // 长河宽度设为2倍屏幕（方便滑动）
-            padding: const EdgeInsets.symmetric(vertical: 80), // 上下留白
-            child: CustomPaint(
-              // 画弯曲的时间长河
-              painter: RiverPainter(),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 瓶子1：红色（甜蜜类）
-                  BottleWidget(
-                    color: Colors.red,
-                    name: "第一次约会",
-                    hasUnread: true,
-                    leftMargin: 50, // 距离左侧的位置
-                  ),
-                  // 瓶子2：粉色（约会类）
-                  BottleWidget(
-                    color: Colors.pink,
-                    name: "看电影",
-                    hasUnread: false,
-                    leftMargin: 250,
-                  ),
-                  // 瓶子3：黑色（矛盾类）
-                  BottleWidget(
-                    color: Colors.black,
-                    name: "吵架和解",
-                    hasUnread: false,
-                    leftMargin: 450,
-                  ),
-                ],
+      home: TimelineScreen(),
+    );
+  }
+}
+
+class TimelineScreen extends StatefulWidget {
+  @override
+  _TimelineScreenState createState() => _TimelineScreenState();
+}
+
+class _TimelineScreenState extends State<TimelineScreen> {
+  // 初始为空列表，确保进入页面时没有默认瓶子
+  final List<Map<String, dynamic>> _bottles = [];
+
+  void _addBottle(Map<String, dynamic> newBottle) {
+    setState(() {
+      _bottles.add(newBottle);
+      _bottles.sort((a, b) => a['time'].compareTo(b['time']));
+    });
+  }
+
+  void _showAddBottleDialog() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController timeController = TextEditingController();
+    final TextEditingController contentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("添加回忆小瓶子"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: "瓶子名称（必填）"),
+                autofocus: true, // 打开弹窗后自动聚焦输入框
+              ),
+              TextField(
+                controller: contentController,
+                decoration: const InputDecoration(labelText: "回忆内容（可选）"),
+              ),
+              TextField(
+                controller: timeController,
+                decoration: const InputDecoration(
+                  labelText: "时间（格式：YYYY-MM-DD HH:mm，必填）",
+                  hintText: "例如：2024-10-25 19:30",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("取消"),
+            ),
+            TextButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final timeStr = timeController.text.trim();
+                final time = DateTime.tryParse(timeStr);
+
+                if (name.isNotEmpty && time != null) {
+                  _addBottle({
+                    'name': name,
+                    'content': contentController.text.trim(),
+                    'time': time,
+                  });
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text("添加"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("我们的回忆长河"),
+        centerTitle: true,
+        backgroundColor: Colors.purpleAccent,
+      ),
+      // 彻底修复纵向滚动：用LayoutBuilder动态获取可用高度
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Container(
+            height: constraints.maxHeight - kToolbarHeight, // 减去AppBar高度
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Column(
+                children: _bottles.isEmpty
+                    ? [
+                        const SizedBox(height: 100),
+                        const Text(
+                          "点击右下角加号，开始记录回忆吧～",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ]
+                    : _bottles.map((bottle) {
+                        return Column(
+                          children: [
+                            Text(
+                              "${bottle['time'].year}-${bottle['time'].month.toString().padLeft(2, '0')}-${bottle['time'].day.toString().padLeft(2, '0')} ${bottle['time'].hour.toString().padLeft(2, '0')}:${bottle['time'].minute.toString().padLeft(2, '0')}",
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            BottleWidget(
+                              name: bottle['name'],
+                              content: bottle['content'],
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      }).toList(),
               ),
             ),
-          ),
-        ),
-        // 右下角“+”按钮
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {}, // 暂不实现功能，仅显示
-          backgroundColor: Colors.purpleAccent,
-          child: const Icon(Icons.add),
-        ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddBottleDialog, // 确保方法绑定正确
+        backgroundColor: Colors.purpleAccent,
+        child: const Icon(Icons.add),
+        elevation: 6,
       ),
     );
   }
 }
 
-// 自定义画笔：画弯曲的时间长河
-class RiverPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey[300]!
-      ..strokeWidth = 8
-      ..style = PaintingStyle.stroke;
-
-    // 画弯曲曲线（起点→两个控制点→终点）
-    final path = Path()
-      ..moveTo(0, size.height / 2) // 起点（最左侧）
-      ..quadraticBezierTo(
-        size.width / 4, size.height / 2 - 50, // 第一个控制点（向上弯）
-        size.width / 2, size.height / 2, // 中间点
-      )
-      ..quadraticBezierTo(
-        size.width * 3 / 4, size.height / 2 + 50, // 第二个控制点（向下弯）
-        size.width, size.height / 2, // 终点（最右侧）
-      );
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// 瓶子组件（复用）
 class BottleWidget extends StatelessWidget {
-  final Color color;
   final String name;
-  final bool hasUnread;
-  final double leftMargin;
+  final String content;
+  final Color color;
 
   const BottleWidget({
-    super.key,
-    required this.color,
     required this.name,
-    required this.hasUnread,
-    required this.leftMargin,
+    required this.content,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(left: leftMargin, bottom: 40), // 与长河对齐
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 瓶子图标（带未读红点）
-          Stack(
-            children: [
-              Icon(Icons.liquor, size: 80, color: color),
-              if (hasUnread)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-            ],
+          Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          // 瓶子名称
-          SizedBox(height: 8),
-          Text(name, style: const TextStyle(fontSize: 16)),
+          if (content.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                content,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+            ),
         ],
       ),
     );
