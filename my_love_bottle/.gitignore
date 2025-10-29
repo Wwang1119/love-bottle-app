@@ -43,3 +43,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# 忽略安卓签名密钥库文件
+android/app/key.jks
